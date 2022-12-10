@@ -17,9 +17,11 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
-  readonly get_spark_avg_yield: (a: number, b: number, c: number) => number;
+  readonly get_spark_avg_yield: (a: number, b: number) => number;
   readonly run_simulation: (a: number, b: number) => number;
+  readonly __wbindgen_free: (a: number, b: number) => void;
   readonly __wbindgen_malloc: (a: number) => number;
+  readonly __wbindgen_realloc: (a: number, b: number, c: number) => number;
   readonly __wbindgen_exn_store: (a: number) => void;
 }
 

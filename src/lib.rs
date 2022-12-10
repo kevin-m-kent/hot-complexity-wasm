@@ -7,7 +7,33 @@ use std::collections::HashMap;
 use rand::Rng; 
 use wasm_bindgen::prelude::*;
 use ndarray::prelude::*; 
-use js_sys::{Array as js_Arr};
+use js_sys::{Array as js_Arr, Uint32Array};
+use console_error_panic_hook::*;
+
+#[wasm_bindgen]
+extern "C" {
+    // Use `js_namespace` here to bind `console.log(..)` instead of just
+    // `log(..)`
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+
+    // The `console.log` is quite polymorphic, so we can bind it with multiple
+    // signatures. Note that we need to use `js_name` to ensure we always call
+    // `log` in JS.
+    #[wasm_bindgen(js_namespace = console, js_name = log)]
+    fn log_u32(a: u32);
+
+    // Multiple arguments too!
+    #[wasm_bindgen(js_namespace = console, js_name = log)]
+    fn log_many(a: &str, b: &str);
+}
+
+macro_rules! console_log {
+    // Note that this is using the `log` function imported above during
+    // `bare_bones`
+    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
+}
+
 
 fn prob_spark(i: i16, j: i16, l: &u16) -> f64 {
     let l = l/10;
@@ -123,14 +149,31 @@ fn array_to_js_array(array: [f64; 2]) -> js_Arr {
 }
 
 
+fn array_to_ndarray(arr: &Array1<u32>, num_cols: usize) -> Array2<u32> {
+    let num_rows = (arr.len() + num_cols - 1) / num_cols;
+    let mut ndarr = Array2::zeros((num_rows, num_cols));
+
+    for (i, elem) in arr.iter().enumerate() {
+        let row = i / num_cols;
+        let col = i % num_cols;
+        ndarr[[row, col]] = *elem;
+    }
+
+    ndarr
+}
+
+
 
 #[wasm_bindgen]
-pub fn get_spark_avg_yield(arr: &[u32], l: u16) ->  f64 {
+pub fn get_spark_avg_yield(arr: &Uint32Array, l: u16) ->  f64 {
 
-    let arr = Array::from_shape_vec((l as usize, l as usize).f(), arr.to_vec()).unwrap();
-    let total_trees = arr.sum();
+    console_error_panic_hook::set_once();
+    let arr_rust = arr.to_vec();
+    let arr_rust = Array1::from(arr_rust);
+    let arr_rust = array_to_ndarray(&arr_rust, l as usize);
+    let total_trees = arr_rust.sum();
     let prob_arr = make_probability_array(&l);
-    let (mut comp_size_hash, labeled_arr) = get_connected_from_arr(&arr, l);
+    let (mut comp_size_hash, labeled_arr) = get_connected_from_arr(&arr_rust, l);
     let mut burn_square = Array2::<f64>::zeros((l as usize, l as usize));
 
     for (i_test, j_test) in iproduct!(0..l, 0..l){ 
@@ -172,6 +215,7 @@ pub fn get_spark_avg_yield(arr: &[u32], l: u16) ->  f64 {
  
     return (total_trees as f64)/(l as f64*l as f64) - burn_prob.sum()/(l as f64*l as f64)
 }
+
 
 pub fn get_spark_avg_yield_rust(arr: &Array2<u32>, l: u16, prob_arr: &Array2::<f64>) ->  f64 {
 
